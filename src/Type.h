@@ -942,6 +942,9 @@ extern bool is_assignable(TypeTag t);
 inline bool is_assignable(Type* t)
 	{ return zeek::is_assignable(t->Tag()); }
 
+// True if the given type tag corresponds to type that can be assigned to.
+extern int is_assignable(BroType* t);
+
 // True if the given type tag corresponds to an integral type.
 inline bool IsIntegral(TypeTag t) { return (t == TYPE_INT || t == TYPE_COUNT || t == TYPE_COUNTER); }
 
