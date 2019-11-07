@@ -480,10 +480,13 @@ install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/
 install(FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/sqlite3.h
         DESTINATION include/zeek/3rdparty
-)
+	)
 
-########################################################################
-## Clang-tidy target now that we have all of the sources
+install(FILES
+        ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/rapidjson/include/rapidjson/document.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/rapidjson/include/rapidjson/writer.h
+        DESTINATION include/zeek/3rdparty/rapidjson/include/rapidjson
+)
 
 add_clang_tidy_files(${MAIN_SRCS})
 

@@ -13,13 +13,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <cmath>
-#include <set>
+#define RAPIDJSON_HAS_STDSTRING 1
+#include "3rdparty/rapidjson/include/rapidjson/document.h"
+#include "3rdparty/rapidjson/include/rapidjson/stringbuffer.h"
+#include "3rdparty/rapidjson/include/rapidjson/writer.h"
 
-#include "Attr.h"
-#include "BroString.h"
-#include "CompHash.h"
-#include "Dict.h"
+#include "Val.h"
 #include "Net.h"
 #include "File.h"
 #include "Func.h"
@@ -38,12 +37,17 @@
 
 #include "broker/Data.h"
 
-#include "threading/formatters/JSON.h"
+class NullDoubleWriter : public rapidjson::Writer<rapidjson::StringBuffer> {
+public:
+	NullDoubleWriter(rapidjson::StringBuffer& buffer) : rapidjson::Writer<rapidjson::StringBuffer>(buffer) {}
+	bool Double(double d)
+	{
+	if ( rapidjson::internal::Double(d).IsNanOrInf() )
+		return rapidjson::Writer<rapidjson::StringBuffer>::Null();
 
-using namespace std;
-
-Val::Val(Func* f) : Val({NewRef{}, f})
-	{}
+	return rapidjson::Writer<rapidjson::StringBuffer>::Double(d);
+	}
+};
 
 Val::Val(IntrusivePtr<Func> f)
 	: val(f.release()), type(val.func_val->GetType())
@@ -435,7 +439,7 @@ IntrusivePtr<TableVal> Val::GetRecordFields()
 
 	if ( t->Tag() == zeek::TYPE_RECORD )
 		{
-		rt = t->AsRecordType();
+l		rt = t->AsRecordType();
 		rv = AsRecordVal();
 		}
 	else
@@ -455,7 +459,7 @@ IntrusivePtr<TableVal> Val::GetRecordFields()
 	}
 
 // This is a static method in this file to avoid including rapidjson's headers in Val.h because they're huge.
-static void BuildJSON(threading::formatter::JSON::NullDoubleWriter& writer, Val* val, bool only_loggable=false, RE_Matcher* re=nullptr, const string& key="")
+static void BuildJSON(NullDoubleWriter& writer, Val* val, bool only_loggable=false, RE_Matcher* re=nullptr, const string& key="")
 	{
 	if ( !key.empty() )
 		writer.Key(key);
@@ -466,32 +470,31 @@ static void BuildJSON(threading::formatter::JSON::NullDoubleWriter& writer, Val*
 		writer.Null();
 		return;
 		}
-
 	rapidjson::Value j;
-
-	switch ( val->GetType()->Tag() )
+	BroType* type = val->Type();
+	switch ( type->Tag() )
 		{
-		case zeek::TYPE_BOOL:
+		case TYPE_BOOL:
 			writer.Bool(val->AsBool());
 			break;
 
-		case zeek::TYPE_INT:
+		case TYPE_INT:
 			writer.Int64(val->AsInt());
 			break;
 
-		case zeek::TYPE_COUNT:
+		case TYPE_COUNT:
 			writer.Uint64(val->AsCount());
 			break;
 
-		case zeek::TYPE_COUNTER:
+		case TYPE_COUNTER:
 			writer.Uint64(val->AsCounter());
 			break;
 
-		case zeek::TYPE_TIME:
+		case TYPE_TIME:
 			writer.Double(val->AsTime());
 			break;
 
-		case zeek::TYPE_DOUBLE:
+		case TYPE_DOUBLE:
 			writer.Double(val->AsDouble());
 			break;
 
@@ -536,7 +539,7 @@ static void BuildJSON(threading::formatter::JSON::NullDoubleWriter& writer, Val*
 			auto* table = val->AsTable();
 			auto* tval = val->AsTableVal();
 
-			if ( tval->GetType()->IsSet() )
+			if ( tval->Type()->IsSet() )
 				writer.StartArray();
 			else
 				writer.StartObject();
@@ -550,26 +553,32 @@ static void BuildJSON(threading::formatter::JSON::NullDoubleWriter& writer, Val*
 				delete k;
 				Val* entry_key = lv->Length() == 1 ? lv->Idx(0).get() : lv.get();
 
-				if ( tval->GetType()->IsSet() )
+				Val* entry_key;
+				if ( lv->Length() == 1 )
+					entry_key = lv->Index(0)->Ref();
+				else
+					entry_key = lv->Ref();
+
+				if ( tval->Type()->IsSet() )
 					BuildJSON(writer, entry_key, only_loggable, re);
 				else
 					{
+					Val* entry_value = entry->Value();
+
 					rapidjson::StringBuffer buffer;
-					threading::formatter::JSON::NullDoubleWriter key_writer(buffer);
+					NullDoubleWriter key_writer(buffer);
 					BuildJSON(key_writer, entry_key, only_loggable, re);
 					string key_str = buffer.GetString();
+					if ( key_str[0] == '"')
+						key_str = key_str.substr(1);
+					if ( key_str[key_str.length()-1] == '"')
+						key_str = key_str.substr(0, key_str.length()-1);
 
-					if ( key_str.length() >= 2 &&
-					     key_str[0] == '"' &&
-					     key_str[key_str.length() - 1] == '"' )
-						// Strip quotes.
-						key_str = key_str.substr(1, key_str.length() - 2);
-
-					BuildJSON(writer, entry->GetVal().get(), only_loggable, re, key_str);
+					BuildJSON(writer, entry_value, only_loggable, re, key_str);
 					}
 				}
 
-			if ( tval->GetType()->IsSet() )
+			if ( tval->Type()->IsSet() )
 				writer.EndArray();
 			else
 				writer.EndObject();
@@ -586,23 +595,26 @@ static void BuildJSON(threading::formatter::JSON::NullDoubleWriter& writer, Val*
 
 			for ( auto i = 0; i < rt->NumFields(); ++i )
 				{
-				auto value = rval->GetFieldOrDefault(i);
+				Val* value = rval->LookupWithDefault(i);
 
-				if ( value && ( ! only_loggable || rt->FieldHasAttr(i, zeek::detail::ATTR_LOG) ) )
+				if ( value && ( ! only_loggable || rt->FieldHasAttr(i, ATTR_LOG) ) )
 					{
 					string key_str;
 					auto field_name = rt->FieldName(i);
 
 					if ( re && re->MatchAnywhere(field_name) != 0 )
 						{
-						auto blank = make_intrusive<StringVal>("");
-						auto fn_val = make_intrusive<StringVal>(field_name);
-						const auto& bs = *blank->AsString();
-						auto key_val = fn_val->Replace(re, bs, false);
+						StringVal blank("");
+						StringVal fn_val(field_name);
+						auto key_val = fn_val.Substitute(re, &blank, 0)->AsStringVal();
 						key_str = key_val->ToStdString();
+						Unref(key_val);
 						}
 					else
 						key_str = field_name;
+
+					BuildJSON(writer, value, only_loggable, re, key_str);
+					}
 
 					BuildJSON(writer, value.get(), only_loggable, re, key_str);
 					}
@@ -619,7 +631,7 @@ static void BuildJSON(threading::formatter::JSON::NullDoubleWriter& writer, Val*
 			auto* lval = val->AsListVal();
 			size_t size = lval->Length();
 			for (size_t i = 0; i < size; i++)
-				BuildJSON(writer, lval->Idx(i).get(), only_loggable, re);
+				BuildJSON(writer, lval->Index(i), only_loggable, re);
 
 			writer.EndArray();
 			break;
@@ -632,7 +644,7 @@ static void BuildJSON(threading::formatter::JSON::NullDoubleWriter& writer, Val*
 			auto* vval = val->AsVectorVal();
 			size_t size = vval->SizeVal()->AsCount();
 			for (size_t i = 0; i < size; i++)
-				BuildJSON(writer, vval->At(i).get(), only_loggable, re);
+				BuildJSON(writer, vval->Lookup(i), only_loggable, re);
 
 			writer.EndArray();
 			break;
@@ -654,6 +666,16 @@ static void BuildJSON(threading::formatter::JSON::NullDoubleWriter& writer, Val*
 		  writer.Null();
 		  break;
 		}
+	}
+
+StringVal* Val::ToJSON(bool only_loggable, RE_Matcher* re)
+	{
+	rapidjson::StringBuffer buffer;
+	NullDoubleWriter writer(buffer);
+
+	BuildJSON(writer, this, only_loggable, re, "");
+
+	return new StringVal(buffer.GetString());
 	}
 
 IntrusivePtr<StringVal> Val::ToJSON(bool only_loggable, RE_Matcher* re)

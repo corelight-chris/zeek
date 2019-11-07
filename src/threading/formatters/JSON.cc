@@ -16,6 +16,9 @@
 #include <math.h>
 #include <stdint.h>
 
+#include "JSON.h"
+#include "3rdparty/rapidjson/include/rapidjson/internal/ieee754.h"
+
 using namespace threading::formatter;
 
 bool JSON::NullDoubleWriter::Double(double d)
@@ -84,51 +87,56 @@ threading::Value* JSON::ParseValue(const std::string& s, const std::string& name
 	return nullptr;
 	}
 
-void JSON::BuildJSON(NullDoubleWriter& writer, Value* val, const std::string& name) const
+void JSON::BuildJSON(NullDoubleWriter& writer, Value* val, const string& name) const
 	{
 	if ( ! val->present )
 		{
 		writer.Null();
 		return;
 		}
-
-	if ( ! name.empty() )
-		writer.Key(name);
-
 	switch ( val->type )
 		{
-		case zeek::TYPE_BOOL:
+		case TYPE_BOOL:
+			if ( ! name.empty() ) writer.Key(name);
 			writer.Bool(val->val.int_val != 0);
 			break;
 
-		case zeek::TYPE_INT:
+		case TYPE_INT:
+			if ( ! name.empty() ) writer.Key(name);
 			writer.Int64(val->val.int_val);
 			break;
 
-		case zeek::TYPE_COUNT:
-		case zeek::TYPE_COUNTER:
+		case TYPE_COUNT:
+		case TYPE_COUNTER:
+			if ( ! name.empty() ) writer.Key(name);
 			writer.Uint64(val->val.uint_val);
 			break;
 
-		case zeek::TYPE_PORT:
+		case TYPE_PORT:
+			if ( ! name.empty() ) writer.Key(name);
 			writer.Uint64(val->val.port_val.port);
 			break;
 
-		case zeek::TYPE_SUBNET:
+		case TYPE_SUBNET:
+			if ( ! name.empty() ) writer.Key(name);
 			writer.String(Formatter::Render(val->val.subnet_val));
 			break;
 
-		case zeek::TYPE_ADDR:
+		case TYPE_ADDR:
+			if ( ! name.empty() ) writer.Key(name);
 			writer.String(Formatter::Render(val->val.addr_val));
 			break;
 
-		case zeek::TYPE_DOUBLE:
-		case zeek::TYPE_INTERVAL:
+		case TYPE_DOUBLE:
+		case TYPE_INTERVAL:
+			if ( ! name.empty() ) writer.Key(name);
+>>>>>>> GHI-595: Convert from nlohmann/json to rapidjson for performance reasons
 			writer.Double(val->val.double_val);
 			break;
 
 		case zeek::TYPE_TIME:
 			{
+			if ( ! name.empty() ) writer.Key(name);
 			if ( timestamps == TS_ISO8601 )
 				{
 				char buffer[40];
@@ -174,12 +182,14 @@ void JSON::BuildJSON(NullDoubleWriter& writer, Value* val, const std::string& na
 		case zeek::TYPE_FILE:
 		case zeek::TYPE_FUNC:
 			{
-			writer.String(json_escape_utf8(std::string(val->val.string_val.data, val->val.string_val.length)));
+			if ( ! name.empty() ) writer.Key(name);
+			writer.String(json_escape_utf8(string(val->val.string_val.data, val->val.string_val.length)));
 			break;
 			}
 
 		case zeek::TYPE_TABLE:
 			{
+			if ( ! name.empty() ) writer.Key(name);
 			writer.StartArray();
 
 			for ( int idx = 0; idx < val->val.set_val.size; idx++ )
@@ -191,6 +201,7 @@ void JSON::BuildJSON(NullDoubleWriter& writer, Value* val, const std::string& na
 
 		case zeek::TYPE_VECTOR:
 			{
+			if ( ! name.empty() ) writer.Key(name);
 			writer.StartArray();
 
 			for ( int idx = 0; idx < val->val.vector_val.size; idx++ )

@@ -3,8 +3,8 @@
 #pragma once
 
 #define RAPIDJSON_HAS_STDSTRING 1
-#include "rapidjson/document.h"
-#include "rapidjson/writer.h"
+#include "3rdparty/rapidjson/include/rapidjson/document.h"
+#include "3rdparty/rapidjson/include/rapidjson/writer.h"
 
 #include "../Formatter.h"
 
@@ -36,8 +36,13 @@ public:
 		bool Double(double d);
 	};
 
-private:
-	void BuildJSON(NullDoubleWriter& writer, Value* val, const std::string& name = "") const;
+	class NullDoubleWriter : public rapidjson::Writer<rapidjson::StringBuffer> {
+	public:
+		NullDoubleWriter(rapidjson::StringBuffer& stream) : rapidjson::Writer<rapidjson::StringBuffer>(stream) {}
+		bool Double(double d);
+	};
+
+	void BuildJSON(NullDoubleWriter& writer, Value* val, const string& name = "") const;
 
 	TimeFormat timestamps;
 	bool surrounding_braces;
