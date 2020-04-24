@@ -2401,7 +2401,7 @@ TEST_CASE("util json_escape_utf8")
 	size_t idx;
 	for ( idx = 0; idx < val_size; )
 		{
-		char ch = val[idx];
+		const char ch = val[idx];
 
 		// Normal ASCII characters plus a few of the control characters can be inserted directly. The
 		// rest of the control characters should be escaped as regular bytes.

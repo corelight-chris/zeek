@@ -480,7 +480,7 @@ install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/
 install(FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/sqlite3.h
         DESTINATION include/zeek/3rdparty
-	)
+)
 
 install(FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/rapidjson/include/rapidjson/document.h

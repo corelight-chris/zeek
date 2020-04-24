@@ -36,12 +36,7 @@ public:
 		bool Double(double d);
 	};
 
-	class NullDoubleWriter : public rapidjson::Writer<rapidjson::StringBuffer> {
-	public:
-		NullDoubleWriter(rapidjson::StringBuffer& stream) : rapidjson::Writer<rapidjson::StringBuffer>(stream) {}
-		bool Double(double d);
-	};
-
+private:
 	void BuildJSON(NullDoubleWriter& writer, Value* val, const string& name = "") const;
 
 	TimeFormat timestamps;

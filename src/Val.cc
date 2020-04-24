@@ -13,11 +13,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define RAPIDJSON_HAS_STDSTRING 1
-#include "3rdparty/rapidjson/include/rapidjson/document.h"
-#include "3rdparty/rapidjson/include/rapidjson/stringbuffer.h"
-#include "3rdparty/rapidjson/include/rapidjson/writer.h"
-
 #include "Val.h"
 #include "Net.h"
 #include "File.h"
@@ -37,17 +32,7 @@
 
 #include "broker/Data.h"
 
-class NullDoubleWriter : public rapidjson::Writer<rapidjson::StringBuffer> {
-public:
-	NullDoubleWriter(rapidjson::StringBuffer& buffer) : rapidjson::Writer<rapidjson::StringBuffer>(buffer) {}
-	bool Double(double d)
-	{
-	if ( rapidjson::internal::Double(d).IsNanOrInf() )
-		return rapidjson::Writer<rapidjson::StringBuffer>::Null();
-
-	return rapidjson::Writer<rapidjson::StringBuffer>::Double(d);
-	}
-};
+#include "threading/formatters/JSON.h"
 
 Val::Val(IntrusivePtr<Func> f)
 	: val(f.release()), type(val.func_val->GetType())
@@ -459,7 +444,7 @@ l		rt = t->AsRecordType();
 	}
 
 // This is a static method in this file to avoid including rapidjson's headers in Val.h because they're huge.
-static void BuildJSON(NullDoubleWriter& writer, Val* val, bool only_loggable=false, RE_Matcher* re=nullptr, const string& key="")
+static void BuildJSON(threading::formatter::JSON::NullDoubleWriter& writer, Val* val, bool only_loggable=false, RE_Matcher* re=nullptr, const string& key="")
 	{
 	if ( !key.empty() )
 		writer.Key(key);
@@ -563,18 +548,18 @@ static void BuildJSON(NullDoubleWriter& writer, Val* val, bool only_loggable=fal
 					BuildJSON(writer, entry_key, only_loggable, re);
 				else
 					{
-					Val* entry_value = entry->Value();
-
 					rapidjson::StringBuffer buffer;
-					NullDoubleWriter key_writer(buffer);
+					threading::formatter::JSON::NullDoubleWriter key_writer(buffer);
 					BuildJSON(key_writer, entry_key, only_loggable, re);
 					string key_str = buffer.GetString();
-					if ( key_str[0] == '"')
-						key_str = key_str.substr(1);
-					if ( key_str[key_str.length()-1] == '"')
-						key_str = key_str.substr(0, key_str.length()-1);
 
-					BuildJSON(writer, entry_value, only_loggable, re, key_str);
+					if ( key_str.length() >= 2 &&
+					     key_str[0] == '"' &&
+					     key_str[key_str.length() - 1] == '"' )
+						// Strip quotes.
+						key_str = key_str.substr(1, key_str.length() - 2);
+
+					BuildJSON(writer, entry->Value(), only_loggable, re, key_str);
 					}
 				}
 
@@ -671,7 +656,7 @@ static void BuildJSON(NullDoubleWriter& writer, Val* val, bool only_loggable=fal
 StringVal* Val::ToJSON(bool only_loggable, RE_Matcher* re)
 	{
 	rapidjson::StringBuffer buffer;
-	NullDoubleWriter writer(buffer);
+	threading::formatter::JSON::NullDoubleWriter writer(buffer);
 
 	BuildJSON(writer, this, only_loggable, re, "");
 
