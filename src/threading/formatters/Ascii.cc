@@ -47,9 +47,10 @@ Ascii::SeparatorInfo::SeparatorInfo(const string& arg_separator,
 	empty_field = arg_empty_field;
 	}
 
-Ascii::Ascii(threading::MsgThread* t, const SeparatorInfo& info) : Formatter(t)
+Ascii::Ascii(threading::MsgThread* t, const SeparatorInfo& info, unsigned int arg_size_limit_hint) : Formatter(t)
 	{
 	separators = info;
+	size_limit_hint = arg_size_limit_hint;
 	}
 
 Ascii::~Ascii()
@@ -141,6 +142,19 @@ bool Ascii::Describe(ODesc* desc, threading::Value* val, const string& name) con
 		if ( escapeReservedContent(desc, separators.empty_field, data, size) )
 			break;
 
+		if ( size_limit_hint && (unsigned int)(desc->Len() + size) > size_limit_hint )
+			{
+			// Cut off and add "truncated" note instead.
+			int keep = (size_limit_hint / 100);
+			desc->AddN(data, keep);
+
+			desc->Add("<truncated ");
+			desc->Add(size - keep);
+			desc->Add(" bytes>");
+
+			break;
+			}
+
 		desc->AddN(data, size);
 		break;
 		}
@@ -165,6 +179,9 @@ bool Ascii::Describe(ODesc* desc, threading::Value* val, const string& name) con
 				desc->RemoveEscapeSequence(separators.set_separator);
 				return false;
 				}
+
+			if ( size_limit_hint && (unsigned int)desc->Len() > size_limit_hint )
+				break;
 			}
 
 		desc->RemoveEscapeSequence(separators.set_separator);
@@ -192,6 +209,9 @@ bool Ascii::Describe(ODesc* desc, threading::Value* val, const string& name) con
 				desc->RemoveEscapeSequence(separators.set_separator);
 				return false;
 				}
+
+			if ( size_limit_hint && (unsigned int)desc->Len() > size_limit_hint )
+				break;
 			}
 
 		desc->RemoveEscapeSequence(separators.set_separator);

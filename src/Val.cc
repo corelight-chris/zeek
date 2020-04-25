@@ -444,7 +444,7 @@ l		rt = t->AsRecordType();
 	}
 
 // This is a static method in this file to avoid including rapidjson's headers in Val.h because they're huge.
-static void BuildJSON(threading::formatter::JSON::NullDoubleWriter& writer, Val* val, bool only_loggable=false, RE_Matcher* re=nullptr, const string& key="")
+static void BuildJSON(threading::formatter::JSON::ZeekWriter& writer, Val* val, bool only_loggable=false, RE_Matcher* re=nullptr, const string& key="")
 	{
 	if ( !key.empty() )
 		writer.Key(key);
@@ -549,7 +549,7 @@ static void BuildJSON(threading::formatter::JSON::NullDoubleWriter& writer, Val*
 				else
 					{
 					rapidjson::StringBuffer buffer;
-					threading::formatter::JSON::NullDoubleWriter key_writer(buffer);
+					threading::formatter::JSON::ZeekWriter key_writer(buffer);
 					BuildJSON(key_writer, entry_key, only_loggable, re);
 					string key_str = buffer.GetString();
 
@@ -656,7 +656,7 @@ static void BuildJSON(threading::formatter::JSON::NullDoubleWriter& writer, Val*
 StringVal* Val::ToJSON(bool only_loggable, RE_Matcher* re)
 	{
 	rapidjson::StringBuffer buffer;
-	threading::formatter::JSON::NullDoubleWriter writer(buffer);
+	threading::formatter::JSON::ZeekWriter writer(buffer);
 
 	BuildJSON(writer, this, only_loggable, re, "");
 

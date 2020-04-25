@@ -21,7 +21,7 @@
 
 using namespace threading::formatter;
 
-bool JSON::NullDoubleWriter::Double(double d)
+bool JSON::ZeekWriter::Double(double d)
 	{
 	if ( rapidjson::internal::Double(d).IsNanOrInf() )
 		return rapidjson::Writer<rapidjson::StringBuffer>::Null();
@@ -29,7 +29,26 @@ bool JSON::NullDoubleWriter::Double(double d)
 	return rapidjson::Writer<rapidjson::StringBuffer>::Double(d);
 	}
 
-JSON::JSON(MsgThread* t, TimeFormat tf) : Formatter(t), surrounding_braces(true)
+bool JSON::ZeekWriter::Truncations()
+	{
+	if ( truncated.size() == 0 )
+		return true;
+
+	if ( ! Key("_truncated") || ! StartArray() )
+		return false;
+
+	for ( unsigned int i = 0; i < truncated.size(); i++ )
+		if ( ! String(truncated[i]) )
+			return false;
+
+	if ( ! EndArray() )
+		return false;
+
+	return true;
+	}
+
+JSON::JSON(MsgThread* t, TimeFormat tf, unsigned int arg_size_limit_hint)
+	: Formatter(t), surrounding_braces(true), size_limit_hint(arg_size_limit_hint)
 	{
 	timestamps = tf;
 	}
@@ -42,15 +61,18 @@ bool JSON::Describe(ODesc* desc, int num_fields, const Field* const * fields,
                     Value** vals) const
 	{
 	rapidjson::StringBuffer buffer;
-	NullDoubleWriter writer(buffer);
+	ZeekWriter writer(buffer);
 
 	writer.StartObject();
 
 	for ( int i = 0; i < num_fields; i++ )
 		{
 		if ( vals[i]->present )
-			BuildJSON(writer, vals[i], fields[i]->name);
+			BuildJSON(writer, vals[i], fields[i]->name, fields[i]->name);
 		}
+
+	if ( size_limit_hint )
+		writer.Truncations();
 
 	writer.EndObject();
 	desc->Add(buffer.GetString());
@@ -71,12 +93,15 @@ bool JSON::Describe(ODesc* desc, Value* val, const std::string& name) const
 
 	rapidjson::Document doc;
 	rapidjson::StringBuffer buffer;
-	NullDoubleWriter writer(buffer);
+	ZeekWriter writer(buffer);
 
 	writer.StartObject();
-	BuildJSON(writer, val, name);
-	writer.EndObject();
+	BuildJSON(writer, val, name, name);
 
+	if ( size_limit_hint )
+		writer.Truncations();
+
+	writer.EndObject();
 	desc->Add(buffer.GetString());
 	return true;
 	}
@@ -87,7 +112,7 @@ threading::Value* JSON::ParseValue(const std::string& s, const std::string& name
 	return nullptr;
 	}
 
-void JSON::BuildJSON(NullDoubleWriter& writer, Value* val, const string& name) const
+void JSON::BuildJSON(ZeekWriter& writer, Value* val, const string& name, const string& last_name) const
 	{
 	if ( ! val->present )
 		{
@@ -177,7 +202,24 @@ void JSON::BuildJSON(NullDoubleWriter& writer, Value* val, const string& name) c
 		case zeek::TYPE_FILE:
 		case zeek::TYPE_FUNC:
 			{
-			writer.String(json_escape_utf8(string(val->val.string_val.data, val->val.string_val.length)));
+			// Most strings should work out fine, so we start with the whole thing...
+			string res = string(val->val.string_val.data, val->val.string_val.length);
+
+			// ... but if that proves too large, we truncate.
+			if ( size_limit_hint && writer.GetBufferSize() + res.length() >= size_limit_hint )
+				{
+				int delta = writer.GetBufferSize() + res.length() - size_limit_hint;
+				int keep = size_limit_hint / 100;
+
+				// If the string is "a lot" too large, truncate:
+				if ( delta > keep )
+					{
+					res = res.substr(0, keep) + " <truncated " + std::to_string(res.length() - keep) + " bytes>";
+					writer.AddTruncation(last_name.size() ? last_name : "???");
+					}
+				}
+
+			writer.String(json_escape_utf8(res));
 			break;
 			}
 
@@ -186,7 +228,15 @@ void JSON::BuildJSON(NullDoubleWriter& writer, Value* val, const string& name) c
 			writer.StartArray();
 
 			for ( int idx = 0; idx < val->val.set_val.size; idx++ )
-				BuildJSON(writer, val->val.set_val.vals[idx]);
+				{
+				BuildJSON(writer, val->val.set_val.vals[idx], "", name);
+
+				if ( size_limit_hint && writer.GetBufferSize() > size_limit_hint )
+					{
+					writer.AddTruncation(last_name.size() ? last_name : "???");
+					break;
+					}
+				}
 
 			writer.EndArray();
 			break;
@@ -197,7 +247,15 @@ void JSON::BuildJSON(NullDoubleWriter& writer, Value* val, const string& name) c
 			writer.StartArray();
 
 			for ( int idx = 0; idx < val->val.vector_val.size; idx++ )
-				BuildJSON(writer, val->val.vector_val.vals[idx]);
+				{
+				BuildJSON(writer, val->val.vector_val.vals[idx], "", name);
+
+				if ( size_limit_hint && writer.GetBufferSize() > size_limit_hint )
+					{
+					writer.AddTruncation(last_name.size() ? last_name : "???");
+					break;
+					}
+				}
 
 			writer.EndArray();
 			break;

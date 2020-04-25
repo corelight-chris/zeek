@@ -28,6 +28,8 @@ Ascii::Ascii(WriterFrontend* frontend) : WriterBackend(frontend)
 	formatter = nullptr;
 	gzip_level = 0;
 	gzfile = nullptr;
+	size_limit_hint = 0;
+	formatter = 0;
 
 	InitConfigOptions();
 	init_options = InitFilterOptions();
@@ -35,11 +37,13 @@ Ascii::Ascii(WriterFrontend* frontend) : WriterBackend(frontend)
 
 void Ascii::InitConfigOptions()
 	{
-	output_to_stdout = zeek::BifConst::LogAscii::output_to_stdout;
-	include_meta = zeek::BifConst::LogAscii::include_meta;
-	use_json = zeek::BifConst::LogAscii::use_json;
-	enable_utf_8 = zeek::BifConst::LogAscii::enable_utf_8;
-	gzip_level = zeek::BifConst::LogAscii::gzip_level;
+	output_to_stdout = BifConst::LogAscii::output_to_stdout;
+	include_meta = BifConst::LogAscii::include_meta;
+	use_json = BifConst::LogAscii::use_json;
+	enable_utf_8 = BifConst::LogAscii::enable_utf_8;
+	gzip_level = BifConst::LogAscii::gzip_level;
+	size_limit_hint = BifConst::LogAscii::size_limit_hint;
+	use_json = BifConst::LogAscii::use_json;
 
 	separator.assign(
 			(const char*) zeek::BifConst::LogAscii::separator->Bytes(),
@@ -199,7 +203,7 @@ bool Ascii::InitFormatter()
 			return false;
 			}
 
-		formatter = new formatter::JSON(this, tf);
+		formatter = new formatter::JSON(this, tf, size_limit_hint);
 		// Using JSON implicitly turns off the header meta fields.
 		include_meta = false;
 		}
@@ -213,7 +217,7 @@ bool Ascii::InitFormatter()
 		desc.EnableEscaping();
 		desc.AddEscapeSequence(separator);
 		formatter::Ascii::SeparatorInfo sep_info(separator, set_separator, unset_field, empty_field);
-		formatter = new formatter::Ascii(this, sep_info);
+		formatter = new formatter::Ascii(this, sep_info, size_limit_hint);
 		}
 
 	return true;

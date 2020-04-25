@@ -56,6 +56,7 @@ private:
 	bool output_to_stdout;
 	bool include_meta;
 	bool tsv;
+	unsigned int size_limit_hint;
 
 	std::string separator;
 	std::string set_separator;
