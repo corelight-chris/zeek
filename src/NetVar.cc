@@ -35,6 +35,7 @@ int watchdog_interval;
 int max_timer_expires;
 
 int ignore_checksums;
+int ignore_local_checksums;
 int partial_connection_ok;
 int tcp_SYN_ack_ok;
 int tcp_match_undelivered;
@@ -249,6 +250,9 @@ void init_net_var()
 
 	tcp_storm_thresh = zeek::id::find_val("tcp_storm_thresh")->AsCount();
 	tcp_storm_interarrival_thresh = zeek::id::find_val("tcp_storm_interarrival_thresh")->AsInterval();
+
+	ignore_checksums = opt_internal_int("ignore_checksums");
+	ignore_local_checksums = opt_internal_int("ignore_local_checksums");
 
 	tcp_content_deliver_all_orig =
 		bool(zeek::id::find_val("tcp_content_deliver_all_orig")->AsBool());

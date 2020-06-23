@@ -54,6 +54,7 @@ extern int watchdog_interval;
 extern int max_timer_expires;
 
 extern int ignore_checksums;
+extern int ignore_local_checksums;
 extern int partial_connection_ok;
 extern int tcp_SYN_ack_ok;
 extern int tcp_match_undelivered;

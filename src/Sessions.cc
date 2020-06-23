@@ -269,8 +269,10 @@ void NetSessions::DoNextPacket(double t, const Packet* pkt, const IP_Hdr* ip_hdr
 	if ( packet_filter && packet_filter->Match(ip_hdr, len, caplen) )
 		 return;
 
-	if ( ! pkt->l2_checksummed && ! ignore_checksums && ip4 &&
-	     ones_complement_checksum((void*) ip4, ip_hdr_len, 0) != 0xffff )
+	if ( ! ignore_checksums &&
+	     ! ( ignore_local_checksums && opt_internal_val("Site::local_nets")->
+		 AsTableVal()->Contains(ip_hdr->IPHeaderSrcAddr()) ) &&
+	     ( ip4 && ones_complement_checksum((void*) ip4, ip_hdr_len, 0) != 0xffff ) )
 		{
 		Weird("bad_IP_checksum", pkt, encapsulation);
 		return;

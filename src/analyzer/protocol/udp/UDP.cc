@@ -66,6 +66,11 @@ void UDP_Analyzer::DeliverPacket(int len, const u_char* data, bool is_orig,
 	constexpr auto vxlan_len = 8;
 	constexpr auto eth_len = 14;
 
+	// When requested, skip checksum verification for local senders
+	if ( ignore_local_checksums && opt_internal_val("Site::local_nets")->
+	     AsTableVal()->Contains(ip->IPHeaderSrcAddr()) )
+		validate_checksum = false;
+
 	if ( validate_checksum &&
 	     len > ((int)sizeof(struct udphdr) + vxlan_len + eth_len) &&
 	     (data[0] & 0x08) == 0x08 )

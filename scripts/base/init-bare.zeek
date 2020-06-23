@@ -953,6 +953,8 @@ const UDP_ACTIVE = 1;	##< Endpoint has sent something.
 ## variable.
 const ignore_checksums = F &redef;
 
+const ignore_local_checksums = F &redef;
+
 ## If true, instantiate connection state when a partial connection
 ## (one missing its initial establishment negotiation) is seen.
 const partial_connection_ok = T &redef;

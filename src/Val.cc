@@ -1890,7 +1890,15 @@ IntrusivePtr<Val> TableVal::Default(const IntrusivePtr<Val>& index)
 	return result;
 	}
 
+
 const IntrusivePtr<Val>& TableVal::Find(const IntrusivePtr<Val>& index)
+
+bool TableVal::Contains(const IPAddr& addr)
+	{
+	return subnets ? subnets->Lookup(addr, true) != 0 : false;
+	}
+
+Val* TableVal::Lookup(Val* index, bool use_default_val)
 	{
 	if ( subnets )
 		{

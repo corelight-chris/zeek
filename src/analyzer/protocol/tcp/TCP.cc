@@ -273,10 +273,12 @@ const struct tcphdr* TCP_Analyzer::ExtractTCP_Header(const u_char*& data,
 	return tp;
 	}
 
-bool TCP_Analyzer::ValidateChecksum(const struct tcphdr* tp,
+bool TCP_Analyzer::ValidateChecksum(const IP_Hdr* ip, const struct tcphdr* tp,
 				TCP_Endpoint* endpoint, int len, int caplen)
 	{
-	if ( ! current_pkt->l3_checksummed && ! ignore_checksums && caplen >= len &&
+	if ( ! ignore_checksums &&
+	     ! ( ignore_local_checksums && opt_internal_val("Site::local_nets")->AsTableVal()->Contains(ip->IPHeaderSrcAddr()) ) &&
+	     caplen >= len &&
 	     ! endpoint->ValidChecksum(tp, len) )
 		{
 		Weird("bad_TCP_checksum");
@@ -1061,7 +1063,7 @@ void TCP_Analyzer::DeliverPacket(int len, const u_char* data, bool is_orig,
 	TCP_Endpoint* endpoint = is_orig ? orig : resp;
 	TCP_Endpoint* peer = endpoint->peer;
 
-	if ( ! ValidateChecksum(tp, endpoint, len, caplen) )
+	if ( ! ValidateChecksum(ip, tp, endpoint, len, caplen) )
 		return;
 
 	uint32_t tcp_hdr_len = data - (const u_char*) tp;

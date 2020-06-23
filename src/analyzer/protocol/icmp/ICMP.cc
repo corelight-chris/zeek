@@ -49,7 +49,9 @@ void ICMP_Analyzer::DeliverPacket(int len, const u_char* data,
 
 	const struct icmp* icmpp = (const struct icmp*) data;
 
-	if ( ! ignore_checksums && caplen >= len )
+	if ( ! ignore_checksums &&
+	     ! ( ignore_local_checksums && opt_internal_val("Site::local_nets")->AsTableVal()->Contains(ip->IPHeaderSrcAddr()) ) &&
+	     caplen >= len )
 		{
 		int chksum = 0;
 
