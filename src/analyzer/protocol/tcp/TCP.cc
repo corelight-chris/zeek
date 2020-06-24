@@ -15,6 +15,7 @@
 #include "Reporter.h"
 #include "Sessions.h"
 #include "DebugLogger.h"
+#include "Var.h"
 
 #include "events.bif.h"
 #include "types.bif.h"
