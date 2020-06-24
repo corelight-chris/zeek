@@ -13,6 +13,7 @@
 #include "Conn.h"
 #include "Desc.h"
 #include "Reporter.h"
+#include "Var.h"
 
 #include "events.bif.h"
 
